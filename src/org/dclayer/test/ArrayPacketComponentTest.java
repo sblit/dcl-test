@@ -1,5 +1,8 @@
 package org.dclayer.test;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedList;
+import java.util.List;
 
 import junit.framework.TestCase;
 
@@ -161,6 +164,152 @@ public class ArrayPacketComponentTest extends TestCase {
 		
 	}
 	
+	@Test
+	public void testFixedSizeExternalElements() throws BufException, ParseException {
+		
+		Data[] datas = new Data[] {
+				new Data("0123456789abcdef"),
+				new Data("123456789abcdef0"),
+				new Data("23456789abcdef01"),
+				new Data("3456789abcdef012"),
+				new Data("456789abcdef0123")
+		};
+		
+		ArrayPacketComponent<Data> outArrayPacketComponent = makeData();
+		
+		outArrayPacketComponent.setElements(Arrays.asList(datas));
+		
+		DataByteBuf dataByteBuf = write(outArrayPacketComponent);
+		dataByteBuf.seek(0);
+		
+		ArrayPacketComponent<Data> inArrayPacketComponent = makeData();
+		
+		inArrayPacketComponent.read(dataByteBuf);
+		
+		int i = 0;
+		for(Data data : inArrayPacketComponent) {
+			if(i > datas.length) {
+				fail("read too many elements");
+			}
+			assertEquals(datas[i], data);
+			i++;
+		}
+		
+		if(i < datas.length) {
+			fail("read too few elements");
+		}
+		
+	}
+	
+	@Test
+	public void testFixedSizeInternalElements() throws BufException, ParseException {
+		
+		Data[] datas = new Data[] {
+				new Data("0123456789abcdef"),
+				new Data("123456789abcdef0"),
+				new Data("23456789abcdef01"),
+				new Data("3456789abcdef012"),
+				new Data("456789abcdef0123")
+		};
+		
+		ArrayPacketComponent<Data> outArrayPacketComponent = makeData();
+		
+		outArrayPacketComponent.setElements(datas.length);
+		
+		int i = 0;
+		for(Data data : outArrayPacketComponent) {
+			data.setBytes(0, datas[i]);
+			i++;
+		}
+		
+		DataByteBuf dataByteBuf = write(outArrayPacketComponent);
+		dataByteBuf.seek(0);
+		
+		ArrayPacketComponent<Data> inArrayPacketComponent = makeData();
+		
+		inArrayPacketComponent.read(dataByteBuf);
+		
+		i = 0;
+		for(Data data : inArrayPacketComponent) {
+			if(i > datas.length) {
+				fail("read too many elements");
+			}
+			assertEquals(datas[i], data);
+			i++;
+		}
+		
+		if(i < datas.length) {
+			fail("read too few elements");
+		}
+		
+	}
+	
+	@Test
+	public void testFixedSizeExternalElementsReuse() throws BufException, ParseException {
+		
+		Data[] datas = new Data[] {
+				new Data("0123456789abcdef"),
+				new Data("123456789abcdef0"),
+				new Data("23456789abcdef01"),
+				new Data("3456789abcdef012"),
+				new Data("456789abcdef0123")
+		};
+		
+		List<Data> dataList = Arrays.asList(datas);
+		
+		ArrayPacketComponent<Data> outArrayPacketComponent = makeData();
+		ArrayPacketComponent<Data> inArrayPacketComponent = makeData();
+		
+		for(int i = 0; i < 1024; i++) {
+			
+			int n = i % (datas.length + 1);
+		
+			outArrayPacketComponent.setElements(dataList.subList(0, n));
+			
+			DataByteBuf dataByteBuf = write(outArrayPacketComponent);
+			dataByteBuf.seek(0);
+			
+			inArrayPacketComponent.read(dataByteBuf);
+			
+			int j = 0;
+			for(Data data : inArrayPacketComponent) {
+				if(j > n) {
+					fail("read too many elements");
+				}
+				assertEquals(datas[j], data);
+				j++;
+			}
+			
+			if(j < n) {
+				fail("read too few elements");
+			}
+			
+		}
+		
+	}
+	
+	@Test
+	public void testEmptyExternalElements() throws BufException, ParseException {
+		
+		List<Data> dataList = new ArrayList<Data>();
+		
+		ArrayPacketComponent<Data> outArrayPacketComponent = makeData();
+		
+		outArrayPacketComponent.setElements(dataList);
+		
+		DataByteBuf dataByteBuf = write(outArrayPacketComponent);
+		dataByteBuf.seek(0);
+		
+		ArrayPacketComponent<Data> inArrayPacketComponent = makeData();
+		
+		inArrayPacketComponent.read(dataByteBuf);
+		
+		for(Data data : inArrayPacketComponent) {
+			fail("read too many elements");
+		}
+		
+	}
+	
 	//
 	
 	private ArrayPacketComponent<DataComponent> make() {
@@ -168,6 +317,15 @@ public class ArrayPacketComponentTest extends TestCase {
 			@Override
 			protected DataComponent newElementPacketComponent() {
 				return new DataComponent();
+			}
+		};
+	}
+	
+	private ArrayPacketComponent<Data> makeData() {
+		return new ArrayPacketComponent<Data>() {
+			@Override
+			protected Data newElementPacketComponent() {
+				return new Data(8);
 			}
 		};
 	}
